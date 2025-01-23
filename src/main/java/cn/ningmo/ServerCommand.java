@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import ninja.leaping.configurate.yaml.YAMLConfigurationLoader;
 import ninja.leaping.configurate.ConfigurationNode;
+import com.velocitypowered.api.command.CommandMeta;
+import com.velocitypowered.api.command.CommandManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,7 +21,7 @@ import java.nio.file.Path;
 @Plugin(
     id = "servercommand",
     name = "ServerCommand",
-    version = "1.0",
+    version = "1.0.1",
     authors = {"ningmo"}
 )
 public class ServerCommand {
@@ -41,10 +43,38 @@ public class ServerCommand {
         loadConfig();
         
         // 注册命令
-        server.getCommandManager().register("sc", new ServerCommandExecutor(server, config));
-        server.getCommandManager().register("hub", new HubCommandExecutor(server, config.getNode("hub-server").getString("hub")));
+        registerCommands();
         
         logger.info("ServerCommand 插件已加载");
+    }
+
+    private void registerCommands() {
+        CommandManager commandManager = server.getCommandManager();
+
+        // 注册 /sc 命令
+        CommandMeta scMeta = commandManager.metaBuilder("sc")
+            .plugin(this)
+            .aliases("server", "服务器") // 添加中文别名
+            .build();
+        commandManager.register(scMeta, new ServerCommandExecutor(server, config));
+
+        // 注册直接传送命令
+        config.getNode("server-aliases").getChildrenMap().forEach((key, value) -> {
+            String alias = key.toString();
+            if (alias.matches("^[\u4e00-\u9fa5]+$")) {  // 检查是否为中文
+                CommandMeta meta = commandManager.metaBuilder(alias)
+                    .plugin(this)
+                    .build();
+                commandManager.register(meta, new DirectServerCommandExecutor(server, value.getString()));
+            }
+        });
+
+        // 注册 /hub 命令
+        CommandMeta hubMeta = commandManager.metaBuilder("hub")
+            .plugin(this)
+            .aliases("lobby", "spawn", "大厅") // 添加中文别名
+            .build();
+        commandManager.register(hubMeta, new HubCommandExecutor(server, config.getNode("hub-server").getString("hub")));
     }
 
     private void loadConfig() {
