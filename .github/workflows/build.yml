@@ -1,0 +1,81 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+          
+      - name: Build with Maven
+        run: mvn -B package --file pom.xml
+        
+      - name: Get version
+        id: get_version
+        run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
+        
+      - name: Check if release exists
+        id: check_release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            try {
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: 'v${{ steps.get_version.outputs.version }}'
+              });
+              return release.data.id;
+            } catch (e) {
+              return '';
+            }
+            
+      - name: Delete existing release
+        if: steps.check_release.outputs.result != ''
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.repos.deleteRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ steps.check_release.outputs.result }}
+            });
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'tags/v${{ steps.get_version.outputs.version }}'
+            });
+            
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: Release v${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+          
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/servercommand-${{ steps.get_version.outputs.version }}.jar
+          asset_name: ServerCommand.jar
+          asset_content_type: application/java-archive 

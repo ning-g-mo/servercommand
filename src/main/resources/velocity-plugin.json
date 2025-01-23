@@ -1,0 +1,7 @@
+{
+  "id": "servercommand",
+  "name": "ServerCommand",
+  "version": "1.0",
+  "authors": ["ningmo"],
+  "main": "cn.ningmo.ServerCommand"
+} 

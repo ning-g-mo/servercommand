@@ -1,0 +1,8 @@
+# ServerCommand 配置文件
+hub-server: "hub"  # hub命令目标服务器名称
+
+# 服务器别名配置
+server-aliases:
+  hub: "lobby-1"      # 例如：输入 /sc hub 会传送到 lobby-1 服务器
+  survival: "srv-1"   # 输入 /sc survival 会传送到 srv-1 服务器
+  creative: "crt-1"   # 输入 /sc creative 会传送到 crt-1 服务器 
