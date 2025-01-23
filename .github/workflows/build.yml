@@ -27,9 +27,9 @@ jobs:
         id: get_version
         run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_OUTPUT
         
-      - name: Check if release exists
-        id: check_release
+      - name: Delete existing release
         uses: actions/github-script@v6
+        continue-on-error: true
         with:
           script: |
             try {
@@ -38,26 +38,21 @@ jobs:
                 repo: context.repo.repo,
                 tag: 'v${{ steps.get_version.outputs.version }}'
               });
-              return release.data.id;
+              
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id
+              });
+              
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'tags/v${{ steps.get_version.outputs.version }}'
+              });
             } catch (e) {
-              return '';
+              console.log('No existing release found');
             }
-            
-      - name: Delete existing release
-        if: steps.check_release.outputs.result != ''
-        uses: actions/github-script@v6
-        with:
-          script: |
-            await github.rest.repos.deleteRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: ${{ steps.check_release.outputs.result }}
-            });
-            await github.rest.git.deleteRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'tags/v${{ steps.get_version.outputs.version }}'
-            });
             
       - name: Create Release
         id: create_release
